@@ -27,6 +27,7 @@ export function createApp(
     password?: string;
     localOnly: boolean;
     webDir?: string;
+    fixture?: boolean;
   },
 ) {
   const app = express(),
@@ -121,6 +122,7 @@ export function createApp(
       authenticated: true,
       csrf: s.csrf,
       localOnly: options.localOnly,
+      fixture: options.fixture === true,
     });
   });
   app.post("/api/session", (req, res) => {
@@ -136,10 +138,12 @@ export function createApp(
       authenticated: true,
       csrf: s.csrf,
       localOnly: options.localOnly,
+      fixture: options.fixture === true,
     });
   });
   app.use("/api", auth.middleware);
   app.delete("/api/session", (req, res) => {
+    engine.passwordLogin.cancel(res.locals.session.id);
     auth.logout(req, res);
     res.json({ ok: true });
   });
@@ -169,16 +173,38 @@ export function createApp(
   });
   app.post("/api/discord/connect", async (req, res) => {
     auth.localInput();
+    engine.passwordLogin.cancel(res.locals.session.id);
     const p = profileSchema.parse(req.body);
     if (p.token) engine.vault.secrets.add(p.token);
     await engine.connect(p);
     res.json(engine.snapshot());
   });
+  app.get("/api/discord/login", (_req, res) => {
+    auth.localInput();
+    res.json(engine.passwordLogin.state(res.locals.session.id));
+  });
+  app.post("/api/discord/login", async (req, res) => {
+    auth.localInput();
+    const login = await engine.passwordLogin.start(res.locals.session.id, req.body);
+    res.json({ login, dashboard: engine.snapshot() });
+  });
+  app.post("/api/discord/login/mfa", async (req, res) => {
+    auth.localInput();
+    const login = await engine.passwordLogin.verify(res.locals.session.id, req.body);
+    res.json({ login, dashboard: engine.snapshot() });
+  });
+  app.delete("/api/discord/login", (_req, res) => {
+    auth.localInput();
+    engine.passwordLogin.cancel(res.locals.session.id);
+    res.json(engine.passwordLogin.state(res.locals.session.id));
+  });
   app.post("/api/discord/reconnect", async (_req, res) => {
+    engine.passwordLogin.cancel(res.locals.session.id);
     await engine.reconnect();
     res.json(engine.snapshot());
   });
   app.post("/api/discord/disconnect", async (req, res) => {
+    engine.passwordLogin.cancel(res.locals.session.id);
     const v = z
       .object({ forget: z.boolean().default(false) })
       .strict()
@@ -307,6 +333,8 @@ export function createApp(
     res.json({ key: bridge.key, expiresAt: bridge.expires });
   });
   app.post("/api/oauth/:provider/start", (req, res) => {
+    if (options.fixture)
+      throw new AppError("unsupported", "Phòng thử cục bộ chỉ dùng đăng nhập mẫu; không mở OAuth dịch vụ thật.", 0, 422);
     auth.localInput();
     const provider = z.enum(["discord", "spotify"]).parse(req.params.provider);
     const v = z

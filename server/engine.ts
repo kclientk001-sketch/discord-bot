@@ -7,6 +7,7 @@ import {
 import { Store } from "./store.js";
 import { Vault } from "./auth/vault.js";
 import { OAuth } from "./auth/oauth.js";
+import { DiscordPasswordLogin } from "./auth/discord-login.js";
 import { DiscordService, type DiscordProfile } from "./discord/service.js";
 import {
   ManualAdapter,
@@ -22,6 +23,7 @@ export class Engine {
   readonly startedAt = Date.now();
   config: Config;
   discord: DiscordService;
+  passwordLogin: DiscordPasswordLogin;
   manual = new ManualAdapter();
   spotify: SpotifyAdapter;
   youtube = new YouTubeAdapter();
@@ -40,6 +42,7 @@ export class Engine {
   ) {
     this.config = store.config();
     this.discord = new DiscordService(vault, oauth, () => {}, fetcher);
+    this.passwordLogin = new DiscordPasswordLogin(vault, (p, signal) => this.connect(p, signal), fetcher);
     this.spotify = new SpotifyAdapter(oauth, fetcher);
     this.lyrics = new LyricsService(store, fetcher);
     this.queue = new LatestQueue(
@@ -229,10 +232,12 @@ export class Engine {
       );
     this.queue.resetTarget();
   }
-  connect(p: DiscordProfile) {
+  connect(p: DiscordProfile, signal?: AbortSignal) {
     return this.lifecycle(async () => {
+      if (signal?.aborted) throw new AppError("auth", "Bước đăng nhập đã được hủy.", 0, 409);
       await this.beforeAccount();
-      await this.discord.connect(p);
+      if (signal?.aborted) throw new AppError("auth", "Bước đăng nhập đã được hủy.", 0, 409);
+      await this.discord.connect(p, signal);
       this.event("Đã xác minh danh tính Discord.");
     });
   }
@@ -249,6 +254,7 @@ export class Engine {
     });
   }
   tick(now = Date.now()) {
+    this.passwordLogin.sweep();
     void this.discord.tick(now).catch(() => {});
     void this.spotify.poll(this.config.spotifyPollMs, now);
     const p = this.playback(now);
@@ -299,6 +305,8 @@ export class Engine {
     this.timer = setInterval(() => this.tick(), 250);
   }
   async close() {
+    this.passwordLogin.cancelAll();
+    await this.passwordLogin.settle();
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     this.enabled = false;
