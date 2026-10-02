@@ -1,10 +1,13 @@
 # Discord Lyrics Status
 
-Ứng dụng cục bộ bằng TypeScript, Node.js 24 LTS, Express 5, React/Vite và SQLite. Giao diện tiếng Việt, tối, thích ứng máy tính/điện thoại; cập nhật bằng SSE. Repository chứa nguồn 1.0.1, lockfile, extension và kiểm thử. Chạy `npm ci`, `npm run build`, rồi `npm start`. ZIP bàn giao riêng có cả bản build. Không kèm thông tin xác thực, `node_modules`, cơ sở dữ liệu cá nhân hoặc `.env` thật.
+Bản **1.1.0** — thêm đăng nhập Discord bằng email/số điện thoại, mật khẩu và 2FA TOTP.
+
+Ứng dụng cục bộ bằng TypeScript, Node.js 24 LTS, Express 5, React/Vite và SQLite. Giao diện tiếng Việt, tối, thích ứng máy tính/điện thoại; cập nhật bằng SSE. Repository chứa nguồn **1.1.0**, lockfile, extension và kiểm thử. Chạy `npm ci`, `npm run build`, rồi `npm start`. ZIP bàn giao riêng có cả bản build. Không kèm thông tin xác thực, `node_modules`, cơ sở dữ liệu cá nhân hoặc `.env` thật.
 
 | Yêu cầu                      | Cơ chế triển khai                                                            | Mức hỗ trợ / giới hạn                                                                                            |
 | ---------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Xác minh tài khoản Discord   | GET `/api/v10/users/@me` với loại Authorization tương ứng                    | Có xác minh danh tính từ dịch vụ khi bạn cung cấp phiên hợp lệ; chưa thử bằng tài khoản thật trong lần bàn giao  |
+| Email / mật khẩu + 2FA | POST client `/auth/login`, rồi `/auth/mfa/totp` khi được yêu cầu; xác minh `/users/@me` | Thử nghiệm, chỉ HTTP(S) loopback; mã TOTP 6 chữ số. CAPTCHA/MFA khác/xác minh bổ sung dừng. Chưa đăng nhập tài khoản thật |
 | User token                   | Nhập cục bộ, xác nhận sở hữu; adapter GET/PATCH legacy `/users/@me/settings` | Thử nghiệm, API không chính thức và đã deprecated; tự vô hiệu hóa gửi nếu không có `custom_status`               |
 | Cookie Discord               | Không triển khai làm credential thay token                                   | Cookie không mặc nhiên thay thế Authorization; không trích xuất cookie/token                                     |
 | Discord OAuth2               | Authorization Code, scope `identify`, state ràng buộc phiên dashboard        | Chính thức, chỉ đọc danh tính; không đổi Custom Status                                                           |
@@ -26,7 +29,7 @@ Discord cấm tự động hóa tài khoản cá nhân bằng self-bot và có t
 
 Cần **Node.js 24 LTS từ 24.15.0**, npm và quyền chạy ứng dụng trên máy của bạn. Runtime đã dùng khi kiểm thử: Node `v24.19.0`, npm `11.9.0`. Node 24 có `node:sqlite` tích hợp, không cần cài SQLite server. Dùng lockfile thay vì tự cập nhật dependency.
 
-Giải nén ZIP, mở terminal trong thư mục `discord-lyrics-status`:
+Clone repository hoặc giải nén ZIP, mở terminal trong thư mục dự án:
 
 ```sh
 npm ci
@@ -74,6 +77,24 @@ Trong Tổng quan chọn **Chạy thử**. App nhập một bài mẫu cùng LRC
 
 Trong Nguồn nhạc có thể pause, chạy hoặc tua timeline. Trong Lời bài hát nhập `examples/demo.lrc` / `demo.txt`, hoặc tệp bạn có quyền sử dụng. Trong Thiết lập chỉnh độ lệch; số dương làm dòng xuất hiện sớm hơn. Đổi bài sang bài chưa gắn lyrics sẽ dùng `{title} — {artist}` hoặc mẫu dự phòng đã cấu hình.
 
+### Phòng thử password + 2FA cục bộ, không cần tài khoản thật
+
+Sau `npm ci` và `npm run build`, chạy:
+
+```sh
+npm run lab:login
+```
+
+Mở `http://127.0.0.1:3211`. Đây là **giao diện và backend Express thật của 1.1.0**, nhưng Discord được thay bằng stub chỉ trong tiến trình thử. Vào Tài khoản, dùng email `fixture@example.invalid`, mật khẩu `FAKE_LAB_PASSWORD`, mã TOTP mẫu `012345`; các giá trị này là dữ liệu giả công khai. Thử mật khẩu sai hoặc mã `000000`; chỉ mã đúng mới hiện **Tài khoản mẫu cục bộ**. Khoảng chờ 3 giây và TTL 5 phút giống luồng thực. Banner ghi rõ dữ liệu mẫu; không nhập credential thật. Stub không gọi Internet, không mở OS vault, SQLite chỉ RAM và chặn khả năng Custom Status thật. OAuth thật bị chặn trong phòng thử này. Ctrl+C để dừng. Server thật dùng `npm start` tại port 3210 và không tự bật stub.
+
+Kiểm thử tự động luồng compiled:
+
+```sh
+node scripts/login-smoke.mjs docs/login-smoke-result.json
+```
+
+Phòng thử trực tuyến riêng tư chỉ minh họa state machine bằng nút cố định, không nhận mật khẩu/OTP của bạn hoặc gọi server đăng nhập. Kết quả kiểm thử stub không chứng minh Discord chấp nhận credential thật.
+
 ## 3. Discord và các kiểu thông tin xác thực
 
 ### OAuth2 chính thức — đọc danh tính
@@ -85,6 +106,27 @@ Trong Nguồn nhạc có thể pause, chạy hoặc tua timeline. Trong Lời b�
 5. Callback trao đổi authorization code trên server; token chỉ ở RAM hoặc kho OS. Dashboard hiển thị danh tính từ `/users/@me`.
 
 OAuth `identify` không cho ghi Custom Status. Scope `activities.write` thông thường không khả dụng cho app bình thường theo tài liệu Discord; bản này không xin scope giả hoặc dùng Bearer token để giả thành user token. Authorization Code callback có `code` một lần trong query theo chuẩn OAuth; access/refresh token, Client Secret và user/bot token không nằm trong URL. App không ghi request URL/body vào log và đặt `Referrer-Policy: no-referrer`.
+
+### Email / mật khẩu + 2FA TOTP — đăng nhập cá nhân thử nghiệm
+
+1. Chạy server cục bộ, mở `http://127.0.0.1:3210`. Không dùng form trên website công khai hoặc phòng thử trực tuyến cho tài khoản thật.
+2. Vào **Tài khoản**, chọn **Email / mật khẩu + 2FA • thử nghiệm cục bộ**.
+3. Nhập email hoặc số điện thoại E.164 (ví dụ định dạng `+84…`). Discord username/display name không phải định danh đăng nhập của luồng này.
+4. Nhập mật khẩu **tại giao diện cục bộ**, xác nhận tài khoản của bạn và giới hạn self-bot, rồi bấm **Kết nối**. Ô mật khẩu/email được xóa sau gửi, kể cả khi gửi thất bại.
+5. Nếu tài khoản bật Authenticator TOTP, ứng dụng hiển thị **Xác minh hai bước** sau khi Discord trả thử thách. Nhập mã **6 chữ số** hiện tại trong ứng dụng Authenticator và bấm **Xác minh 2FA**. Không cung cấp seed/QR 2FA, mật khẩu hay mã trong cuộc trò chuyện.
+6. Khi mã sai, ô mã được xóa; thử mã mới sau thời gian chờ. Ticket chỉ ở server RAM, ràng buộc phiên dashboard; hết hạn cục bộ sau **5 phút**, tối đa **5 lượt**. **Hủy đăng nhập**, đổi phương thức hoặc đăng xuất dashboard sẽ hủy bước chờ. Đóng tab không tự đăng xuất; TTL vẫn áp dụng.
+7. Chỉ sau khi có token hợp lệ và xác minh `/users/@me`, dashboard báo kết nối. Tài khoản không bật MFA có thể kết nối sau bước mật khẩu; ứng dụng không giả một lần xác minh 2FA.
+8. Khả năng đổi Custom Status được kiểm tra riêng bằng adapter legacy hiện có. Đăng nhập thành công không đảm bảo endpoint Custom Status còn được Discord chấp nhận. Kết nối lại dùng token đã cấp, không tự gửi lại mật khẩu/OTP. Phiên hết hiệu lực hoặc cần xác minh sẽ dừng.
+
+Đây là **giao thức client không chính thức**, không phải OAuth password grant hay API có cam kết ổn định. Endpoint và các trường `login/password`, `mfa/totp/ticket/login_instance_id/token` đã được đối chiếu với bundle web công khai do Discord phát hành ngày 2026-10-02; xem [bằng chứng kiểm chứng](docs/LOGIN-CLIENT-VALIDATION.json). Chưa thử bằng credential thật, nên không khẳng định tài khoản của bạn sẽ đăng nhập được. Luồng không giả fingerprint, không thu cookie, không tự đọc token trình duyệt và không giải CAPTCHA.
+
+CAPTCHA, xác minh email/IP/điện thoại, tài khoản vô hiệu hóa/xóa/đình chỉ hoặc hành động bắt buộc: dừng, báo lý do tổng quát, hoàn tất trong Discord chính thức rồi thử lại. SMS, passkey/WebAuthn và mã dự phòng chưa triển khai trong form thử nghiệm này; chọn Discord chính thức/OAuth2 nếu cần. Không tự khôi phục tài khoản đã xóa hoặc vô hiệu hóa. WebAuthn của Discord gắn với domain Discord nên form localhost không thể giả làm domain đó.
+
+Mật khẩu và OTP không lưu tệp, SQLite, OS vault, URL hoặc localStorage. Server gửi chúng qua HTTPS trực tiếp tới Discord, không chuyển tới provider nhạc/lyrics hay phòng thử. Ticket/instance ID không trả về dashboard; chỉ trả ID thử thách ngẫu nhiên của ứng dụng. Chọn **Lưu phiên** chỉ lưu profile chứa token được cấp vào kho OS; không có kho OS thì bị từ chối trước khi gửi credential. RAM và bộ lọc che bí mật không phải cơ chế xóa bộ nhớ có đảm bảo của JavaScript.
+
+Ứng dụng không tự retry password/OTP khi mất mạng (tránh gửi lặp mã một lần), và tôn trọng Retry-After kể cả 429 không có JSON. Có khoảng chờ tối thiểu 3 giây giữa các lần gửi, tối đa 5 lần gửi mật khẩu/60 giây áp dụng chung cả khi đổi phiên dashboard. Đợi rồi **tự gửi** mã mới. Các giới hạn bảo vệ phía Discord có thể chặt hơn.
+
+Đây là đăng nhập **Discord**, khác mật khẩu truy cập dashboard qua LAN. Luồng mới bị chặn ở chế độ LAN và khi `PUBLIC_ORIGIN` không phải loopback; không thêm tài khoản/mật khẩu/2FA Discord vào `.env`.
 
 ### User token — Custom Status cá nhân thử nghiệm
 
@@ -238,6 +280,7 @@ discord-lyrics-status/
     auth/
       vault.ts               # kho OS hoặc RAM
       oauth.ts               # OAuth, PKCE, refresh, state
+      discord-login.ts       # password + TOTP cục bộ, TTL, owner binding, Retry-After
       dashboard.ts           # session, mật khẩu, Host/Origin/CSRF
     discord/service.ts       # danh tính, legacy Custom Status, bot Activity
     music/adapters.ts        # Spotify, YouTube bridge, timeline thủ công
@@ -250,8 +293,9 @@ discord-lyrics-status/
     popup.html / popup.css / popup.js
   examples/demo.lrc / demo.txt
   tests/
-    helpers.ts / core.test.ts / services.test.ts / api.test.ts / ui.test.ts / launcher.test.ts
+    helpers.ts / core.test.ts / services.test.ts / api.test.ts / ui.test.ts / launcher.test.ts / login.test.ts
   scripts/package.py / smoke.mjs / launch.mjs / verify-launcher.mjs
+  scripts/login-lab.mjs / login-smoke.mjs
   docs/SOURCES.md / DEPENDENCIES.md / TEST-REPORT.md / LOCAL-VALIDATION.md
   docs/test-output.txt / smoke-result.json
   dist/                      # server và web đã build
@@ -275,4 +319,4 @@ Thêm nguồn phát bằng interface `MusicAdapter.read(now): Playback`, dùng T
 | Chờ restore                         | Chờ hết cooldown; hoặc tắt khôi phục rồi lưu khi sync đã tắt để chủ động bỏ restore                               |
 | SSE mất kết nối                     | Browser tự kết nối lại; thẻ Discord chỉ là mẫu gần nhất, không phải xác nhận mới                                  |
 
-Chưa xác minh bằng credential thật: Discord legacy settings/bot Gateway/OAuth, Spotify OAuth/player/quota thật, phiên YouTube Music/extension thật, LRCLIB đáp ứng một bài cụ thể, lưu credential trên macOS/Windows/desktop Linux, TLS/LAN trên điện thoại và hình học giao diện trình duyệt. Các phần này có code triển khai đầy đủ nhưng cần kiểm tra trên máy/tài khoản của bạn. Không có credential thật nên không có tuyên bố đổi Custom Status thật thành công.
+Chưa xác minh bằng credential thật: Discord password/TOTP/CAPTCHA, legacy settings/bot Gateway/OAuth, Spotify OAuth/player/quota thật, phiên YouTube Music/extension thật, LRCLIB đáp ứng một bài cụ thể, lưu credential trên macOS/Windows/desktop Linux, TLS/LAN trên điện thoại và hình học giao diện trình duyệt. Các phần này có code triển khai đầy đủ nhưng cần kiểm tra trên máy/tài khoản của bạn. Không có credential thật nên không có tuyên bố đổi Custom Status thật thành công.

@@ -28,6 +28,14 @@ export const defaults: Config = {
 };
 export type MusicSource = Config["musicSource"];
 export type DiscordMode = "user-token" | "oauth2" | "bot";
+export interface DiscordLoginState {
+  stage: "idle" | "authenticating" | "mfa-required" | "verifying" | "connected" | "verification-required" | "error";
+  challengeId: string | null;
+  expiresAt: number | null;
+  attemptsRemaining: number | null;
+  retryAt: number | null;
+  lastError: string | null;
+}
 export interface Track {
   id: string;
   title: string;
@@ -57,6 +65,7 @@ export interface Lyrics {
 }
 export interface AccountState {
   mode: DiscordMode | null;
+  authenticationMethod?: "password" | "token" | "oauth2";
   connection:
     | "disconnected"
     | "connecting"
