@@ -106,7 +106,7 @@ export class DashboardAuth {
     }
   };
   localInput() {
-    if (!this.localOnly)
+    if (!this.localOnly || !["127.0.0.1", "localhost", "[::1]"].includes(new URL(this.origin).hostname))
       throw new AppError(
         "unsupported",
         "Nhập thông tin xác thực và ghép bridge chỉ được mở khi server chạy cục bộ.",

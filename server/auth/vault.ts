@@ -78,4 +78,7 @@ export class Vault {
         );
       }
   }
+  clearMemory(key: string) {
+    this.memory.delete(key);
+  }
 }
