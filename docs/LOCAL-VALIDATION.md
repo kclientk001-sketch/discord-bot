@@ -33,3 +33,10 @@ Nếu dashboard báo kho OS không khả dụng, chỉ dùng RAM; không chọn 
 Kiểm tra cửa sổ desktop và kích thước điện thoại: điều hướng, form, bàn phím, nút bật/tắt, progress và hàng đợi. Gói hiện chưa có ảnh browser đã xác minh. Muốn dùng điện thoại, cần server LAN HTTPS và password theo README; app không tự mở firewall hoặc công khai server.
 
 Khi báo lỗi, chỉ cung cấp bước tái hiện, phiên bản Node/OS/browser và thông báo không bí mật trên dashboard. Không gửi file `.env`, database cá nhân, OS keyring hay ảnh ô credential.
+
+
+## Kiểm tra đăng nhập password + TOTP (1.1.0)
+
+Chỉ dùng localhost trên chính máy bạn. Chọn Email/mật khẩu + 2FA trong Tài khoản; tự nhập credential, không gửi chúng vào chat hoặc log. Kiểm tra sai mật khẩu không báo thành công; tài khoản có Authenticator phải hiện bước 2FA trước khi có danh tính mới; mã sai xóa ô mã và giảm lượt, mã đúng xác minh users/@me. Kiểm tra Hủy, chờ hết 5 phút và đổi phương thức; ticket cũ không được dùng lại. Nếu cần CAPTCHA hoặc SMS/passkey/backup, phải thấy cảnh báo dừng và hoàn tất ở Discord chính thức. Không thử vượt các kiểm soát đó. Sau đăng nhập kiểm tra riêng cờ Custom Status; chỉ bật gửi khi capability đã được xác nhận. Kết nối lại dùng token hiện tại, không tự gửi password/OTP.
+
+Các kiểm tra này cần tự chạy trên máy/tài khoản; kết quả fixtures được ghi trong TEST-REPORT.md, không thay cho kiểm chứng dịch vụ thật.

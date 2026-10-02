@@ -1,24 +1,35 @@
-# Báo cáo kiểm thử
+# Báo cáo kiểm thử — 1.1.0
 
-Bản 1.0.1 được kiểm tra trên Linux, Node v24.19.0, npm 11.9.0. Gói ZIP đã được giải nén lại và cài bằng lockfile. Không dùng thông tin xác thực thật để kiểm thử.
+Kiểm thử trên Linux, Node v24.19.0, npm 11.9.0 ngày 2026-10-02. Bản này bổ sung đăng nhập Discord bằng mật khẩu và TOTP. Toàn bộ credential dùng trong test là dữ liệu `FAKE_*`, không gửi đến Discord. Dependency giữ nguyên lockfile của 1.0.1; chỉ tăng phiên bản ứng dụng.
 
-| Kiểm tra                                                          | Kết quả                                                                  | Bằng chứng                                                             |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| TypeScript server + web                                           | Đạt (trong build)                                                        | build-output.txt                                                       |
-| Build production Vite + server                                    | Đạt                                                                      | build-output.txt, dist/                                                |
-| Unit / service / HTTP / React / launcher                          | **53 / 53 đạt**, 0 fail, 0 skip                                          | test-output.txt                                                        |
-| Kiểm tra lại launcher sau chỉnh sửa cuối                          | **2 / 2 đạt**, 0 fail, 0 skip                                            | launcher-test-output.txt                                               |
-| Cài mới từ ZIP bằng npm ci                                        | Đạt, 185 package                                                         | fresh-install-output.txt                                               |
-| Bootstrap từ source không có dependency/dist, NODE_ENV=production | **6 / 6 đạt**                                                            | launcher-result.json                                                   |
-| Smoke compiled server thật                                        | **12 / 12 đạt**; kết quả bản 1.0.0 được giữ lại, mã server/web không đổi | smoke-result.json                                                      |
-| Trình duyệt render / screenshot                                   | Chưa xác minh                                                            | Chromium chưa có; tải browser thất bại với tệp ZIP rỗng / không hợp lệ |
-| Dịch vụ với credential thật                                       | Chưa xác minh                                                            | Không sử dụng thông tin xác thực thật trong bàn giao                   |
+| Kiểm tra | Kết quả | Bằng chứng |
+| --- | --- | --- |
+| Unit/service/HTTP/React/launcher | **75/75 đạt**, 0 fail, 0 skip | test-output.txt |
+| Nhóm password/TOTP mới | **20/20 đạt**, nằm trong tổng 75 | tests/login.test.ts và test-output.txt |
+| Flow password/MFA HTTP + lỗi HTTP | **2/2 đạt**, nằm trong tổng 75 | tests/api.test.ts |
+| React password/TOTP | Đạt trong flow React chung: mật khẩu xóa, OTP sai xóa, OTP đúng, đổi phương thức, ID không bị che nhầm | tests/ui.test.ts |
+| TypeScript server + web / production build | Đạt | build-output.txt |
+| Đăng nhập compiled với fixture cục bộ | **9/9 đạt** | login-smoke-result.json, login-smoke-output.txt |
+| Server compiled thật, HTTP/SSE/SQLite tạm | **12/12 smoke đạt** | smoke-result.json, smoke-output.txt |
+| Bootstrap từ nguồn sạch | **6/6 đạt ở 1.0.1**, chưa chạy lại trên 1.1.0 | launcher-result.json (kết quả cũ) |
+| Keyring/LAN TLS/Windows/macOS thật | Chưa xác minh | cần thử trên máy người dùng |
+| Password/TOTP/login/MFA thật với Discord | **Chưa xác minh** | không sử dụng credential thật |
+| Kiểm chứng giao thức | Đối chiếu tĩnh bundle client chính thức, không phải xác thực tài khoản thật | LOGIN-CLIENT-VALIDATION.json |
 
-Full suite ghi duration_ms 2751.341153; hai test launcher chạy lại ghi duration_ms 830.347431. Bootstrap mới hoàn tất lúc 2026-10-02T01:37:39.220Z; smoke giữ lại chạy lúc 2026-10-02T01:08:07.031Z. Node tối thiểu 24.15.0 được chọn theo engine requirements trong lockfile; runtime thực tế đã chạy là 24.19.0.
+Full suite duration_ms 2215.634825. Smoke lần này được ghi lại theo thời gian trong smoke-result.json. Hai launcher unit test nằm trong 75 kiểm tra; dữ liệu bootstrap/cài sạch riêng từ 1.0.1 được giữ nguyên và ghi rõ lịch sử, không coi là lần chạy 1.1.0.
 
-Bootstrap dùng bản sao tạm có đường dẫn chứa khoảng trắng và cwd khác thư mục app. Launcher tự cài bằng `npm ci --include=dev`, tự build TypeScript/Vite, phục vụ trang HTML tiếng Việt, mở API ở trạng thái dry run/disconnected và chuyển SIGTERM để server dừng sạch. Bản sao không nạp phiên từ kho OS và được xóa sau kiểm tra. Không coi các kiểm tra HTTP/DOM là kiểm tra render trình duyệt.
+## Kiểm tra đăng nhập mới
 
-Wrapper Windows và nhánh npm qua cmd.exe chưa chạy trên Windows thật. Test chuyển SIGTERM tự động được skip trên Windows; kết quả trên Linux không chứng minh hành vi của Windows hoặc macOS.
+- Password → MFA → token: chỉ xác minh danh tính sau khi Discord fixture cấp token. Tài khoản không có MFA không bị tạo một lần xác minh giả.
+- Hủy ngay khi đang xác minh `/users/@me` ngắt request, không kết nối và không lưu token mới.
+- TOTP 6 chữ số, owner binding, ID thử thách không chứa ticket; hủy/hết hạn/replay/phiên khác bị chặn trước request upstream.
+- Mã sai còn lượt thì cho nhập mã mới; 5 mã sai xóa ticket. Discord báo invalid ticket/session (60006/60009) dừng ngay.
+- CAPTCHA, phone verification, tài khoản bị đình chỉ/xóa/vô hiệu hóa và required_actions dừng; SMS/passkey/backup-only không bị coi là TOTP.
+- 429 chọn Retry-After dài nhất, gồm response không phải JSON. Hủy/đổi dashboard session không xóa cooldown. Không tự retry mật khẩu/OTP khi mất mạng.
+- Không có cookie/Authorization trong request đăng nhập; endpoint HTTPS cố định, chặn redirect. Persistence không có keyring bị từ chối trước khi gửi.
+- HTTP guard CSRF/phiên/LAN; logout hủy thử thách; password/code/ticket/token không có trong response, SSE, SQLite hoặc console fixture.
+- OTP số có thể trùng một phần ID công khai: giữ đúng ID/danh tính, che mã trong log. Không lấy kết quả preview làm xác nhận Custom Status.
+- Không giả fingerprint, giải CAPTCHA, lấy token từ trình duyệt hay seed 2FA. Mật khẩu/OTP không lưu vào profile/kho OS. JavaScript không cung cấp cam kết zeroization RAM.
 
 ## Những hành vi đã kiểm tra
 
@@ -39,16 +50,18 @@ Wrapper Windows và nhánh npm qua cmd.exe chưa chạy trên Windows thật. Te
 
 `scripts/smoke.mjs` khởi chạy `dist/server/index.js` thật ở port tạm, DATA_DIR tạm và `RESTORE_SAVED_SESSIONS=0`. Kiểm tra trang HTML tiếng Việt/header, JS/CSS production, phiên dashboard, mặc định dry run, nhập bài, gắn LRC, pause, tua lùi, đổi bài thiếu lời, SSE và bật/tắt preview. Script dừng server và xóa database tạm sau khi chạy.
 
+`scripts/login-smoke.mjs` chạy cùng server Express và module đăng nhập đã compile với stub Discord đóng; kiểm tra mật khẩu sai, bước MFA, OTP sai/đúng, danh tính mẫu, không giả ACK Custom Status và không phản chiếu bí mật. Chạy `npm run smoke:login`; không gọi dịch vụ thật, không phải bài kiểm tra hình học giao diện.
+
 ## Cần xác minh trên máy người dùng
 
-1. Discord legacy GET/PATCH còn được tài khoản của bạn chấp nhận hay không, hiển thị trong client, expiry/emoji thực tế, user verification behavior.
+1. Discord password/TOTP/CAPTCHA/xác minh bổ sung và legacy GET/PATCH còn được tài khoản của bạn chấp nhận hay không, hiển thị trong client, expiry/emoji thực tế, user verification behavior.
 2. Discord OAuth callback thật và Gateway bot thật. Không có ACK riêng cho presence nên “đã gửi” vẫn không chứng minh người khác nhìn thấy.
 3. Spotify OAuth/player/allowlist/quota thật, độ trễ polling, server response variation. Các tình huống đã test ở trên dùng fixtures, không phải Spotify thật.
 4. Extension MV3 trên Chrome/Edge với YouTube Music thực tế; MAIN Media Session/DOM selector, quyền tải extension và service worker lifecycle.
 5. LRCLIB endpoint sống và quyền/độ đúng của lyrics cụ thể. HTTP fixture/cache test không bảo đảm provider có mọi bài.
 6. Keychain/Credential Manager/Secret Service desktop thật. Môi trường bàn giao không có phiên desktop keyring khả dụng; app hiện RAM-only và không fallback lưu plaintext.
 7. Chứng chỉ HTTPS tin cậy, LAN/password/cookie/SSE trên điện thoại. Guard HTTP đã test; network/TLS trên thiết bị thật chưa test.
-8. Visual QA desktop/mobile trong trình duyệt. Không có screenshot vì không chạy được Chromium; React DOM assertions và asset HTTP smoke không thay cho kiểm tra hình học.
+8. Giao diện form cục bộ được kiểm tra bằng React/jsdom; hình học responsive của form thật và login thật chưa kiểm tra bằng trình duyệt. Phòng thử trên web có dữ liệu mẫu riêng, không chứng minh form/backend thật đã đăng nhập Discord.
 9. Wrapper Windows, nhánh npm qua cmd.exe và khởi chạy trên macOS. Dùng checklist trong [LOCAL-VALIDATION.md](LOCAL-VALIDATION.md); kết quả thực tế hiện có chỉ từ Linux.
 
 Không có tuyên bố đã thay Custom Status thật, kết nối tài khoản thật hoặc nhận lyrics của một bài cụ thể từ dịch vụ thật.

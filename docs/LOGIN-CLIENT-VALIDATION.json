@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-10-02T14:34:16.722083+00:00",
+  "source": "https://discord.com/assets/web.ea428454da038edc.js",
+  "sha256": "5c4d9c302146afb81454dffb6071391cf6fbf80765cd593bae43fe80891b5894",
+  "bytes": 12232147,
+  "observed": [
+    "LOGIN constant maps to /auth/login",
+    "LOGIN_MFA(type) maps to /auth/mfa/{type}",
+    "login reply includes mfa, totp, ticket, login_instance_id and token",
+    "MFA request body uses code, ticket, login_instance_id"
+  ],
+  "limitations": [
+    "Static public client inspection only; no live credential login attempted",
+    "This is not a stable public API contract"
+  ]
+}

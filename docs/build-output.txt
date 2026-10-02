@@ -1,6 +1,6 @@
 npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 
-> discord-lyrics-status@1.0.0 build
+> discord-lyrics-status@1.1.0 build
 > tsc -p tsconfig.server.json && tsc -p tsconfig.web.json && vite build
 
 vite v8.3.2 building client environment for production...
@@ -9,7 +9,7 @@ transforming...
 rendering chunks...
 computing gzip size...
 dist/web/index.html                   0.45 kB │ gzip:   0.29 kB
-dist/web/assets/index-DNSy1lCp.css    8.52 kB │ gzip:   2.78 kB
-dist/web/assets/index-CoH7e6IU.js   337.13 kB │ gzip: 101.52 kB
+dist/web/assets/index-BYQkxvQv.css    8.65 kB │ gzip:   2.82 kB
+dist/web/assets/index-CGXXMwOc.js   341.95 kB │ gzip: 102.85 kB
 
-✓ built in 122ms
+✓ built in 132ms

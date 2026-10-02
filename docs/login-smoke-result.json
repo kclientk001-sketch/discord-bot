@@ -1,0 +1,45 @@
+{
+  "version": "1.1.0",
+  "executedAt": "2026-10-02T14:56:20.293Z",
+  "checks": [
+    {
+      "name": "Compiled fixture server issues dashboard session with fixture label",
+      "passed": true
+    },
+    {
+      "name": "Compiled React assets served by real Express",
+      "passed": true
+    },
+    {
+      "name": "Wrong password rejected without account connection",
+      "passed": true
+    },
+    {
+      "name": "Correct fixture password requests MFA without claiming identity",
+      "passed": true
+    },
+    {
+      "name": "Wrong MFA code rejected by compiled flow",
+      "passed": true
+    },
+    {
+      "name": "Wrong MFA reduces remaining attempts and keeps opaque local challenge",
+      "passed": true
+    },
+    {
+      "name": "Correct MFA confirms only the fixture identity",
+      "passed": true
+    },
+    {
+      "name": "No real Custom Status capability or fabricated service confirmation",
+      "passed": true
+    },
+    {
+      "name": "No password/OTP/ticket/token in dashboard response or startup log",
+      "passed": true
+    }
+  ],
+  "passed": 9,
+  "liveDiscordVerified": false,
+  "scope": "Compiled local server + React assets; Discord stub; no browser render claim"
+}

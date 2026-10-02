@@ -1,0 +1,13 @@
+PASS Trang HTML tiếng Việt và header bảo vệ
+PASS JavaScript bản build phục vụ được
+PASS CSS bản build phục vụ được
+PASS Phiên dashboard HttpOnly
+PASS Khởi động an toàn ở chế độ chạy thử
+PASS Nhập bài hát bằng API thật
+PASS Nhập và gắn LRC
+PASS Pause cố định timeline
+PASS Tua lùi chọn lại dòng LRC
+PASS Đổi bài thiếu lyrics dùng fallback
+PASS SSE thật phân biệt preview và xác nhận
+PASS Bật / tắt chạy thử không tạo gửi dịch vụ
+12/12 smoke checks đạt.

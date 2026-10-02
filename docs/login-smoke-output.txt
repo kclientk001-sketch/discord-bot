@@ -1,0 +1,10 @@
+PASS Compiled fixture server issues dashboard session with fixture label
+PASS Compiled React assets served by real Express
+PASS Wrong password rejected without account connection
+PASS Correct fixture password requests MFA without claiming identity
+PASS Wrong MFA code rejected by compiled flow
+PASS Wrong MFA reduces remaining attempts and keeps opaque local challenge
+PASS Correct MFA confirms only the fixture identity
+PASS No real Custom Status capability or fabricated service confirmation
+PASS No password/OTP/ticket/token in dashboard response or startup log
+9/9 login smoke checks passed.
