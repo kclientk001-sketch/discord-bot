@@ -14,6 +14,7 @@ export interface DiscordProfile {
   token?: string;
   persist: boolean;
   acceptedRisk?: boolean;
+  loginMethod?: "password";
 }
 export interface SendResult {
   submission: Submission;
@@ -40,6 +41,7 @@ export class DiscordService {
   private checking = false;
   private generation = 0;
   private cooldownUntil = 0;
+  private connectSignal: AbortSignal | undefined;
   constructor(
     private vault: Vault,
     private oauth: OAuth,
@@ -70,11 +72,14 @@ export class DiscordService {
   }
   private async api(url: string, init: RequestInit = {}) {
     try {
+      const signal = this.connectSignal;
+      if (signal?.aborted) throw new AppError("auth", "Bước đăng nhập đã được hủy.", 0, 409);
       const r = await requestJson<any>(
         url,
-        { ...init, headers: await this.headers() },
+        { ...init, headers: await this.headers(), ...(signal ? { signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]) } : {}) },
         this.fetcher,
       );
+      if (signal?.aborted) throw new AppError("auth", "Bước đăng nhập đã được hủy.", 0, 409);
       if (r.rateWaitMs) {
         this.cooldownUntil = Date.now() + r.rateWaitMs;
         this.state.retryAt = this.cooldownUntil;
@@ -131,7 +136,7 @@ export class DiscordService {
       }
     }
   }
-  async connect(profile: DiscordProfile) {
+  async connect(profile: DiscordProfile, signal?: AbortSignal) {
     this.vault.assertPersistence(profile.persist);
     this.vault.secrets.register(profile);
     if (profile.mode === "user-token" && !profile.acceptedRisk)
@@ -143,11 +148,13 @@ export class DiscordService {
       throw new AppError("validation", "Thiếu token.");
     await this.disconnect(false);
     const gen = ++this.generation;
+    this.connectSignal = signal;
     this.profile = profile;
     this.vault.put("discord-profile", profile, false);
     this.state = {
       ...empty(),
       mode: profile.mode,
+      authenticationMethod: profile.mode === "oauth2" ? "oauth2" : profile.loginMethod === "password" ? "password" : "token",
       connection: "connecting",
       savedSession: profile.persist,
     };
@@ -155,6 +162,7 @@ export class DiscordService {
     try {
       await this.verify();
       if (gen !== this.generation) return;
+      if (signal?.aborted) throw new AppError("auth", "Bước đăng nhập đã được hủy.", 0, 409);
       if (profile.mode === "bot") await this.connectBot(profile.token!);
       if (gen !== this.generation) return;
       this.vault.put("discord-profile", profile, profile.persist);
@@ -163,9 +171,15 @@ export class DiscordService {
       this.attempts = 0;
       this.lastCheck = Date.now();
     } catch (e) {
+      if (signal?.aborted) {
+        await this.disconnect(false);
+        this.vault.clearMemory("discord-profile");
+        throw new AppError("auth", "Bước đăng nhập đã được hủy.", 0, 409);
+      }
       this.failure(e);
       throw safeError(e);
     } finally {
+      if (this.connectSignal === signal) this.connectSignal = undefined;
       this.changed();
     }
   }
