@@ -1,0 +1,38 @@
+{
+  "executedAt": "2026-10-02T01:37:39.220Z",
+  "node": "v24.19.0",
+  "platform": "linux",
+  "productionEnvironmentVerified": true,
+  "checks": [
+    {
+      "name": "Bản sao mới không có dependency, dist hoặc phiên người dùng",
+      "passed": true
+    },
+    {
+      "name": "Launcher tự chạy npm ci theo lockfile",
+      "passed": true
+    },
+    {
+      "name": "Launcher tự build khi thiếu dist",
+      "passed": true
+    },
+    {
+      "name": "HTTP thật hoạt động khi đường dẫn có khoảng trắng và cwd khác thư mục app",
+      "passed": true
+    },
+    {
+      "name": "Khởi động dry run, không nạp credential hoặc gửi status",
+      "passed": true
+    },
+    {
+      "name": "SIGTERM dừng launcher và server sạch",
+      "passed": true
+    }
+  ],
+  "passed": 6,
+  "failed": false,
+  "error": null,
+  "liveServicesVerified": false,
+  "windowsWrapperVerified": false,
+  "browserVisualVerified": false
+}

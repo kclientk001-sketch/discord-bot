@@ -1,0 +1,66 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> discord-lyrics-status@1.0.1 test
+> node --import tsx --test tests/*.test.ts
+
+✔ Phiên HttpOnly SameSite Lax, Host/Origin/CSRF chặn truy cập sai (90.069481ms)
+✔ LAN có mật khẩu và không cho nhập token/ghép bridge (22.536227ms)
+✔ Đăng nhập sai quá 5 lần được giới hạn tốc độ (22.789498ms)
+✔ Token sai không xuất hiện trong lỗi, SSE, snapshot, SQLite hoặc console (20.787213ms)
+✔ Cookie không được nhận thay token; lưu phiên không có keyring bị từ chối (11.558522ms)
+✔ API lyrics thủ công xử lý LRC, seek, pause, đổi bài và fallback (25.606417ms)
+✔ Config chứa secret và JSON lỗi không được phản chiếu hoặc lưu (25.202479ms)
+✔ Bridge cần Origin và khóa đúng; URL metadata có cache không giả phiên phát (19.410995ms)
+✔ SSE thật gửi snapshot đã làm sạch và không báo gửi khi chỉ xem trước (7.189375ms)
+✔ Unicode NFC, tiếng Việt và emoji không bị cắt giữa grapheme (10.710528ms)
+✔ Bí mật được ẩn trong log, object, escaped JSON; avatar công khai được giữ (0.668485ms)
+✔ So sánh bí mật không lộ độ dài (0.247893ms)
+✔ LRC nhiều tag, BOM, CRLF, offset và dòng trống (1.006192ms)
+✔ LRC timestamp sai bị từ chối (0.473202ms)
+✔ LRC trước dòng đầu, seek lùi và độ lệch dương/âm (0.397388ms)
+✔ TXT luân phiên theo cursor, không giả timestamp (0.249125ms)
+✔ Đối chiếu tên nghệ sĩ tiếng Việt và thời lượng (0.87163ms)
+✔ Timeline pause/resume/tua giữ đúng vị trí và chặn cuối bài (2.705947ms)
+✔ Dữ liệu stale không tiếp tục extrapolate (0.192058ms)
+✔ URL canonical loại tracking, từ chối thông tin xác thực và URL tùy ý (0.357227ms)
+✔ YouTube bridge chọn phiên phát thật và đánh dấu stale sau 8 giây (1.874227ms)
+✔ Retry-After chọn thời gian dài nhất từ header/JSON/reset (1.19063ms)
+✔ 429 không phản chiếu body và request network được phân loại (2.641219ms)
+✔ Hàng đợi gộp dòng mới nhất và tôn trọng khoảng gửi (0.599331ms)
+✔ Tua về dòng đã gửi bỏ dòng cũ đang chờ (0.172099ms)
+✔ 429 giữ dòng mới nhất; không retry dòng cũ khi đã bị thay (0.700573ms)
+✔ Tắt khi request đang chạy không làm request lỗi sống lại (0.189855ms)
+✔ Gateway submitted không bị báo service confirmed (0.226821ms)
+✔ SQLite chỉ lưu config/lyrics/cache, restart cưỡng chế chạy thử (3.79929ms)
+✔ Launcher --check không khởi chạy server; từ chối credential qua CLI mà không in bí mật (234.450567ms)
+✔ Launcher khởi chạy compiled server thật và chuyển SIGTERM để dừng sạch (658.970479ms)
+✔ Spotify QUOTA_EXCEEDED dừng nguồn, không retry như rate limit ngắn (9.954312ms)
+✔ Refresh invalid_grant xóa phiên, dừng retry và yêu cầu OAuth lại (2.129461ms)
+✔ Discord tuân thủ Retry-After ngay cả khi bấm kết nối lại (2.317123ms)
+✔ Sai thông tin xác thực làm expired và dừng tự retry (11.772724ms)
+✔ Captcha / xác minh dừng tự reconnect (2.717434ms)
+✔ User token cần xác nhận sở hữu; lưu phiên không fallback plaintext (0.686181ms)
+✔ GET danh tính và PATCH chỉ custom_status; khôi phục emoji (2.888201ms)
+✔ Phản hồi không xác nhận dòng không báo thành công (1.001245ms)
+✔ Endpoint legacy không còn hỗ trợ vẫn giữ danh tính, vô hiệu hóa gửi (0.740503ms)
+✔ Mất mạng backoff, reconnect và dừng khi phiên không còn hợp lệ (4.101094ms)
+✔ OAuth identify dùng Bearer và không được phép ghi Custom Status (1.36376ms)
+✔ Bot token không bị coi là tài khoản cá nhân (0.52526ms)
+✔ Spotify PKCE scope tối thiểu, state ràng buộc phiên và dùng một lần (1.524332ms)
+✔ OAuth refresh gộp request, giữ refresh token nếu provider không trả mới (0.620753ms)
+✔ Spotify đọc pause/resume/seek/đổi bài/204 từ phiên thực tế (1.272397ms)
+✔ Spotify 429 đóng băng timeline và chờ cooldown (1.158551ms)
+✔ Đọc Spotify metadata không thay phiên phát (1.046233ms)
+✔ Lyrics provider cache và gắn kết quả do người dùng chọn (3.058617ms)
+✔ Engine chạy thử, pause/tua/đổi bài và thiếu lyrics không gửi (3.010055ms)
+✔ Engine khôi phục qua hàng đợi, không xóa restore khi bấm ngắt (2.379566ms)
+✔ Hết hiệu lực trong heartbeat dừng đồng bộ (1.066493ms)
+✔ React: chạy thử, pause/tua, nhập TXT, độ lệch, loại token và xóa bí mật sau gửi (770.11774ms)
+ℹ tests 53
+ℹ suites 0
+ℹ pass 53
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2751.341153

@@ -1,0 +1,10 @@
+✔ Launcher --check không khởi chạy server; từ chối credential qua CLI mà không in bí mật (133.457083ms)
+✔ Launcher khởi chạy compiled server thật và chuyển SIGTERM để dừng sạch (503.076684ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 830.347431

@@ -1,0 +1,58 @@
+{
+  "executedAt": "2026-10-02T01:08:07.031Z",
+  "node": "v24.19.0",
+  "checks": [
+    {
+      "name": "Trang HTML tiếng Việt và header bảo vệ",
+      "passed": true
+    },
+    {
+      "name": "JavaScript bản build phục vụ được",
+      "passed": true
+    },
+    {
+      "name": "CSS bản build phục vụ được",
+      "passed": true
+    },
+    {
+      "name": "Phiên dashboard HttpOnly",
+      "passed": true
+    },
+    {
+      "name": "Khởi động an toàn ở chế độ chạy thử",
+      "passed": true
+    },
+    {
+      "name": "Nhập bài hát bằng API thật",
+      "passed": true
+    },
+    {
+      "name": "Nhập và gắn LRC",
+      "passed": true
+    },
+    {
+      "name": "Pause cố định timeline",
+      "passed": true
+    },
+    {
+      "name": "Tua lùi chọn lại dòng LRC",
+      "passed": true
+    },
+    {
+      "name": "Đổi bài thiếu lyrics dùng fallback",
+      "passed": true
+    },
+    {
+      "name": "SSE thật phân biệt preview và xác nhận",
+      "passed": true
+    },
+    {
+      "name": "Bật / tắt chạy thử không tạo gửi dịch vụ",
+      "passed": true
+    }
+  ],
+  "passed": 12,
+  "failed": false,
+  "liveServicesVerified": false,
+  "browserVisualVerified": false
+}
