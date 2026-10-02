@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>YouTube Music bridge</title>
+  </head>
+  <body>
+    <h1>♫ Lyrics Status</h1>
+    <p>Chỉ theo dõi tab YouTube Music hiện tại.</p>
+    <label>Extension ID<input id="extensionId" readonly /></label
+    ><label
+      >Dashboard HTTP cục bộ<input
+        id="origin"
+        value="http://127.0.0.1:3210" /></label
+    ><label
+      >Khóa bridge<input type="password" id="key" autocomplete="off" /></label
+    ><button id="pair">Ghép và theo dõi tab này</button
+    ><button id="disconnect">Ngắt bridge</button>
+    <p id="status" role="status"></p>
+    <small
+      >Không đọc token Discord hoặc cookie. Khóa chỉ giữ trong session RAM của
+      extension; ghép lại sau khi khởi động trình duyệt / server.</small
+    >
+    <script src="popup.js"></script>
+  </body>
+</html>
