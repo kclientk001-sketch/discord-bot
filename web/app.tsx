@@ -4,6 +4,7 @@ import {
   type Config,
   type Dashboard,
   type DiscordMode,
+  type DiscordLoginState,
   type Lyrics,
   type Track,
 } from "../shared";
@@ -95,6 +96,7 @@ export default function App() {
   const [session, setSession] = useState<{
       csrf: string;
       localOnly: boolean;
+      fixture?: boolean;
     } | null>(null),
     [boot, setBoot] = useState(true),
     [password, setPassword] = useState(""),
@@ -104,7 +106,11 @@ export default function App() {
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [stream, setStream] = useState(false);
-  const [mode, setMode] = useState<DiscordMode>("oauth2"),
+  const [mode, setMode] = useState<DiscordMode | "password">("oauth2"),
+    [discordLogin, setDiscordLogin] = useState(""),
+    [discordPassword, setDiscordPassword] = useState(""),
+    [otp, setOtp] = useState(""),
+    [loginState, setLoginState] = useState<DiscordLoginState | null>(null),
     [token, setToken] = useState(""),
     [risk, setRisk] = useState(false),
     [remember, setRemember] = useState(false),
@@ -124,6 +130,10 @@ export default function App() {
     [extensionId, setExtensionId] = useState(""),
     [bridgeKey, setBridgeKey] = useState("");
   const [draft, setDraft] = useState<Config>({ ...defaults });
+  function clearAccountInputs() {
+    setDiscordLogin(""); setDiscordPassword(""); setOtp("");
+    setToken(""); setClientSecret("");
+  }
   async function api<T>(
     path: string,
     body?: unknown,
@@ -205,6 +215,37 @@ export default function App() {
       s.close();
     };
   }, [session]);
+  useEffect(() => {
+    if (session?.fixture) {
+      setMode("password"); setDiscordLogin("fixture@example.invalid");
+      setDiscordPassword("FAKE_LAB_PASSWORD");
+    }
+  }, [session?.fixture]);
+  useEffect(() => {
+    if (!session?.localOnly || mode !== "password" || tab !== "Tài khoản") return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const state = await api<DiscordLoginState>("/api/discord/login");
+        if (active) setLoginState(state);
+      } catch { /* The action error is shown by act; polling never retries login. */ }
+    };
+    void refresh();
+    const timer = setInterval(() => void refresh(), 2000);
+    return () => { active = false; clearInterval(timer); };
+  }, [session, mode, tab]);
+  async function passwordAction(path: string, body: unknown) {
+    try {
+      const result = await api<{ login: DiscordLoginState; dashboard: Dashboard }>(path, body);
+      setLoginState(result.login);
+      setData(result.dashboard);
+      setNotice(result.login.stage === "mfa-required"
+        ? "Discord yêu cầu mã 2FA từ ứng dụng Authenticator của bạn."
+        : "Đã xác minh danh tính Discord; xem khả năng Custom Status trong phiên hiện tại.");
+    } finally {
+      try { setLoginState(await api<DiscordLoginState>("/api/discord/login")); } catch {}
+    }
+  }
   const cfgKey = data ? JSON.stringify(data.config) : "";
   useEffect(() => {
     if (data) setDraft({ ...data.config });
@@ -353,6 +394,11 @@ export default function App() {
             nhận gần nhất.
           </div>
         )}
+        {session.fixture && <div className="banner" role="note">
+          <strong>PHÒNG THỬ CỤC BỘ — DỮ LIỆU GIẢ.</strong> Không nhận tài khoản thật, không gọi Discord.
+          Trong Tài khoản: email fixture@example.invalid, mật khẩu FAKE_LAB_PASSWORD,
+          mã TOTP mẫu 012345. Danh tính được xác nhận bởi stub cục bộ; Custom Status thật bị vô hiệu hóa.
+        </div>}
         {error && (
           <div role="alert" className="banner error">
             {error}
@@ -654,7 +700,7 @@ export default function App() {
             <Card title="Kết nối Discord">
               <p>
                 Discord cấm tự động hóa tài khoản cá nhân (self-bot), có thể
-                khóa tài khoản. Chế độ user token dùng endpoint legacy thử
+                khóa tài khoản. Đăng nhập mật khẩu/user token dùng cơ chế thử
                 nghiệm; OAuth2 identify chỉ đọc danh tính.
               </p>
               {!local && (
@@ -666,14 +712,22 @@ export default function App() {
               <Field label="Phương thức xác thực">
                 <select
                   value={mode}
+                  disabled={busy}
                   onChange={(e) => {
-                    setMode(e.target.value as DiscordMode);
-                    setToken("");
-                    setAuthUrl("");
+                    const next = e.target.value as DiscordMode | "password";
+                    clearAccountInputs(); setAuthUrl("");
+                    if (mode === "password") void act(async () => {
+                      if (local) await api("/api/discord/login", {}, "DELETE");
+                      setLoginState(null); setMode(next);
+                    });
+                    else { setLoginState(null); setMode(next); }
                   }}
                 >
                   <option value="oauth2">
                     OAuth2 chính thức • đọc danh tính
+                  </option>
+                  <option value="password">
+                    Email / mật khẩu + 2FA • thử nghiệm cục bộ
                   </option>
                   <option value="user-token">
                     User token • Custom Status thử nghiệm
@@ -706,6 +760,60 @@ export default function App() {
                     Redirect: {location.origin}/api/oauth/discord/callback.
                     Scope: identify. Không có quyền đổi Custom Status.
                   </p>
+                </>
+              ) : mode === "password" ? (
+                <>
+                  <p className="banner">
+                    Đăng nhập tài khoản Discord của bạn. Cơ chế client không chính thức;
+                    chưa kiểm chứng bằng tài khoản thật. Chỉ hỗ trợ mã TOTP 6 chữ số.
+                  </p>
+                  <Field label="Email hoặc số điện thoại Discord (+84…)">
+                    <input value={discordLogin} disabled={!local || busy || !!loginState?.challengeId}
+                      onChange={(e) => setDiscordLogin(e.target.value)} autoComplete="off" spellCheck={false} />
+                  </Field>
+                  <Field label="Mật khẩu tài khoản Discord">
+                    <input type="password" value={discordPassword} disabled={!local || busy || !!loginState?.challengeId}
+                      onChange={(e) => setDiscordPassword(e.target.value)} autoComplete="off" spellCheck={false} />
+                  </Field>
+                  <Check label="Đây là tài khoản của tôi; tôi hiểu giới hạn self-bot và endpoint legacy có thể không còn hoạt động."
+                    checked={risk} onChange={setRisk} disabled={busy || !!loginState?.challengeId} />
+                  <p className="muted">
+                    Mật khẩu và mã 2FA chỉ gửi từ giao diện loopback tới server cục bộ,
+                    rồi tới Discord qua HTTPS. Không lưu chúng vào tệp hay kho OS;
+                    tùy chọn lưu phiên chỉ áp dụng cho token Discord được cấp.
+                  </p>
+                  {loginState?.challengeId && (
+                    <div className="mfa-panel" role="group" aria-label="Xác minh 2FA Discord">
+                      <h3>Xác minh hai bước</h3>
+                      <p>Nhập mã hiện tại từ ứng dụng Authenticator. Bước này hết hạn lúc {when(loginState.expiresAt)};
+                        còn {loginState.attemptsRemaining} lượt.</p>
+                      <Field label="Mã 2FA Discord (6 chữ số)">
+                        <input type="password" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                          value={otp} disabled={busy || !local} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} />
+                      </Field>
+                      <div className="buttons">
+                        <button disabled={busy || !local || otp.length !== 6 || (loginState.retryAt ?? 0) > d.now}
+                          onClick={() => void act(async () => {
+                            const code = otp; setOtp("");
+                            await passwordAction("/api/discord/login/mfa", { challengeId: loginState.challengeId, code });
+                          })}>Xác minh 2FA</button>
+                        <button className="secondary" disabled={busy || !local}
+                          onClick={() => void act(async () => {
+                            clearAccountInputs();
+                            setLoginState(await api<DiscordLoginState>("/api/discord/login", {}, "DELETE"));
+                          })}>Hủy đăng nhập</button>
+                      </div>
+                    </div>
+                  )}
+                  {loginState?.retryAt && loginState.retryAt > d.now && (
+                    <p role="status">Chờ {Math.ceil((loginState.retryAt - d.now) / 1000)} giây trước lần gửi tiếp theo.</p>
+                  )}
+                  {loginState?.lastError && <p className="error">{loginState.lastError}</p>}
+                  <p className="muted">
+                    CAPTCHA, xác minh email/điện thoại, SMS, passkey và mã dự phòng:
+                    hoàn tất trên Discord chính thức. Ứng dụng dừng tại các thử thách này.
+                  </p>
+                  <a href="https://discord.com/login" target="_blank" rel="noreferrer">Mở trang đăng nhập Discord chính thức ↗</a>
                 </>
               ) : (
                 <>
@@ -742,12 +850,13 @@ export default function App() {
                 label="Lưu phiên vào kho thông tin xác thực của hệ điều hành"
                 checked={remember}
                 onChange={setRemember}
-                disabled={!d.vault.available}
+                disabled={!d.vault.available || (mode === "password" && !!loginState?.challengeId)}
               />
               <p className="muted">{d.vault.description}</p>
               <div className="buttons">
                 <button
-                  disabled={busy || !local || (mode === "user-token" && !risk)}
+                  disabled={busy || !local || (["user-token", "password"].includes(mode) && !risk) ||
+                    (mode === "password" && (!!loginState?.challengeId || !discordLogin.trim() || !discordPassword || (loginState?.retryAt ?? 0) > d.now))}
                   onClick={() =>
                     void act(async () => {
                       if (mode === "oauth2") {
@@ -758,6 +867,10 @@ export default function App() {
                           { clientId, clientSecret: secret, persist: remember },
                         );
                         setAuthUrl(r.url);
+                      } else if (mode === "password") {
+                        const login = discordLogin, password = discordPassword;
+                        setDiscordLogin(""); setDiscordPassword(""); setOtp("");
+                        await passwordAction("/api/discord/login", { login, password, persist: remember, acceptedRisk: risk });
                       } else {
                         const credential = token;
                         setToken("");
@@ -806,6 +919,8 @@ export default function App() {
             <Card title="Phiên hiện tại">
               <Badge value={a.connection} />
               <dl>
+                <dt>Cách đăng nhập</dt>
+                <dd>{a.authenticationMethod === "password" ? "Mật khẩu / 2FA (thử nghiệm)" : a.mode ? names[a.mode] : "Chưa có phiên"}</dd>
                 <dt>Tài khoản</dt>
                 <dd>{a.identity?.name ?? "Chưa xác minh"}</dd>
                 <dt>ID</dt>
@@ -1507,6 +1622,7 @@ export default function App() {
                 onClick={() =>
                   void act(async () => {
                     await api("/api/session", {}, "DELETE");
+                    clearAccountInputs(); setLoginState(null); setBridgeKey(""); setAuthUrl("");
                     setSession(null);
                     setData(null);
                   })

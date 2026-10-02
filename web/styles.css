@@ -13,6 +13,14 @@
   line-height: 1.55;
   color-scheme: dark;
 }
+.mfa-panel {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid #9472ff;
+  border-radius: 12px;
+  background: #201c35;
+}
+.mfa-panel h3 { margin-top: 0; }
 * {
   box-sizing: border-box;
 }
