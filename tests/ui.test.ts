@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import { createElement } from "react";
 import { fixture, fake, json, user } from "./helpers.js";
-test("React: chạy thử, pause/tua, nhập TXT, độ lệch, loại token và xóa bí mật sau gửi", async () => {
+import { DiscordPasswordLogin } from "../server/auth/discord-login.js";
+import { safeError } from "../server/security.js";
+test("React: timeline, token, password/TOTP, sai OTP, đổi phương thức và xóa bí mật sau gửi", async () => {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
     url: "http://127.0.0.1:3210",
   });
@@ -27,11 +29,14 @@ test("React: chạy thử, pause/tua, nhập TXT, độ lệch, loại token và
   }
   const originalFetch = globalThis.fetch;
   const oldEvent = globalThis.EventSource;
-  const f = fixture(
-    fake((u, i) =>
-      u.endsWith("/settings") ? json({ custom_status: null }) : json(user),
-    ),
-  );
+  const discordFetcher = fake((u, i) => {
+    if (u.endsWith("/auth/login")) return json({ mfa: true, totp: true, ticket: "FAKE_UI_MFA_TICKET" });
+    if (u.endsWith("/auth/mfa/totp")) return JSON.parse(String(i.body)).code === "012345" ? json({ token: "FAKE_UI_ISSUED_TOKEN" }) : json({ code: 60008 }, 400);
+    return u.endsWith("/settings") ? json({ custom_status: null }) : json(user);
+  });
+  const f = fixture(discordFetcher);
+  let authClock = Date.now() - 10000;
+  f.engine.passwordLogin = new DiscordPasswordLogin(f.vault, (p) => f.engine.connect(p), discordFetcher, () => authClock);
   class FakeEventSource {
     onopen: any = null;
     onmessage: any = null;
@@ -46,6 +51,17 @@ test("React: chạy thử, pause/tua, nhập TXT, độ lệch, loại token và
     const body = typeof init.body === "string" ? JSON.parse(init.body) : {};
     if (url === "/api/session")
       return json({ csrf: "FAKE_CSRF", localOnly: true });
+    if (url === "/api/discord/login" || url === "/api/discord/login/mfa") {
+      try {
+        if (init.method === "DELETE") f.engine.passwordLogin.cancel("FAKE_OWNER");
+        if (init.method === "POST") {
+          if (url.endsWith("/mfa")) await f.engine.passwordLogin.verify("FAKE_OWNER", body);
+          else await f.engine.passwordLogin.start("FAKE_OWNER", body);
+          return json({ login: f.engine.passwordLogin.state("FAKE_OWNER"), dashboard: f.engine.snapshot() });
+        }
+        return json(f.engine.passwordLogin.state("FAKE_OWNER"));
+      } catch (error) { const e = safeError(error); return json({ error: e.message, kind: e.kind }, e.status); }
+    }
     if (url === "/api/config") f.engine.updateConfig(body);
     if (url === "/api/music/manual") f.engine.manual.set(body);
     if (url === "/api/lyrics/import") {
@@ -138,6 +154,30 @@ test("React: chạy thử, pause/tua, nhập TXT, độ lệch, loại token và
     assert(!JSON.stringify(f.engine.snapshot()).includes(credential));
     assert.equal(dom.window.localStorage.length, 0);
     assert.equal(f.engine.snapshot().sync.queue.lastConfirmed, null);
+    fireEvent.change(screen.getByLabelText("Phương thức xác thực"), { target: { value: "password" } });
+    fireEvent.change(screen.getByLabelText("Email hoặc số điện thoại Discord (+84…)"), { target: { value: "fixture@example.invalid" } });
+    fireEvent.change(screen.getByLabelText("Mật khẩu tài khoản Discord"), { target: { value: "FAKE_UI_DISCORD_PASSWORD" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kết nối", exact: true }));
+    await screen.findByRole("group", { name: "Xác minh 2FA Discord" });
+    assert.equal((screen.getByLabelText("Mật khẩu tài khoản Discord") as HTMLInputElement).value, "");
+    assert.equal((screen.getByLabelText("Email hoặc số điện thoại Discord (+84…)") as HTMLInputElement).value, "");
+    fireEvent.change(screen.getByLabelText("Mã 2FA Discord (6 chữ số)"), { target: { value: "123456" } });
+    authClock += 3001;
+    fireEvent.click(screen.getByRole("button", { name: "Xác minh 2FA", exact: true }));
+    await waitFor(() => assert.match(screen.getByRole("alert").textContent ?? "", /Mã 2FA/));
+    assert.equal((screen.getByLabelText("Mã 2FA Discord (6 chữ số)") as HTMLInputElement).value, "");
+    assert.equal(f.engine.passwordLogin.state("FAKE_OWNER").attemptsRemaining, 4);
+    authClock += 3001;
+    fireEvent.change(screen.getByLabelText("Mã 2FA Discord (6 chữ số)"), { target: { value: "012345" } });
+    fireEvent.click(screen.getByRole("button", { name: "Xác minh 2FA", exact: true }));
+    await screen.findByText("Mật khẩu / 2FA (thử nghiệm)");
+    await waitFor(() => assert.equal(screen.queryByLabelText("Mã 2FA Discord (6 chữ số)"), null));
+    assert.equal(f.engine.snapshot().account.identity?.id, user.id);
+    assert.equal(dom.window.localStorage.length, 0);
+    for (const v of ["FAKE_UI_DISCORD_PASSWORD", "FAKE_UI_MFA_TICKET", "FAKE_UI_ISSUED_TOKEN"]) assert(!dom.window.document.body.textContent?.includes(v));
+    fireEvent.change(screen.getByLabelText("Phương thức xác thực"), { target: { value: "user-token" } });
+    await screen.findByLabelText("User token của tài khoản của bạn");
+    assert.equal(f.engine.passwordLogin.state("FAKE_OWNER").stage, "idle");
   } finally {
     cleanup();
     globalThis.fetch = originalFetch;

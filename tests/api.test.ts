@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createServer, request as httpRequest } from "node:http";
 import { createApp } from "../server/app.js";
 import { fixture, fake, json, user, userProfile } from "./helpers.js";
+import { DiscordPasswordLogin } from "../server/auth/discord-login.js";
 async function harness(
   password = "",
   localOnly = true,
@@ -106,6 +107,9 @@ test("LAN có mật khẩu và không cho nhập token/ghép bridge", async () =
       (await h.send("/api/discord/connect", userProfile)).status,
       422,
     );
+    for (const path of ["/api/discord/login", "/api/discord/login/mfa"])
+      assert.equal((await h.send(path, {})).status, 422);
+    assert.equal((await h.send("/api/discord/login")).status, 422);
     assert.equal(
       (await h.send("/api/bridge/pair", { extensionId: "a".repeat(32) }))
         .status,
@@ -113,6 +117,73 @@ test("LAN có mật khẩu và không cho nhập token/ghép bridge", async () =
     );
   } finally {
     await h.close();
+  }
+});
+test("Password/MFA HTTP flow: CSRF, owner binding, logout and secret-free responses/SSE/SQLite/log", async () => {
+  const secret = { password: "FAKE_API_PASSWORD_ĐỈNH", ticket: "FAKE_API_MFA_TICKET", token: "FAKE_API_ISSUED_TOKEN", code: "097531" };
+  const input = { login: "fixture@example.invalid", password: secret.password, acceptedRisk: true, persist: false };
+  const calls: string[] = [], lines: string[] = [];
+  const old = { log: console.log, error: console.error, warn: console.warn };
+  for (const key of ["log", "error", "warn"] as const) console[key] = (...args) => { lines.push(args.join(" ")); };
+  const fetcher = fake((url) => {
+    calls.push(url);
+    if (url.endsWith("/auth/login")) return json({ mfa: true, totp: true, ticket: secret.ticket });
+    if (url.endsWith("/auth/mfa/totp")) return json({ token: secret.token });
+    return url.endsWith("/settings") ? json({ custom_status: null }) : json(user);
+  });
+  const h = await harness("", true, fetcher);
+  let clock = Date.now();
+  h.engine.passwordLogin = new DiscordPasswordLogin(h.vault, (p) => h.engine.connect(p), fetcher, () => clock);
+  try {
+    assert.equal((await h.send("/api/discord/login", input)).status, 401);
+    await h.login();
+    assert.equal((await h.send("/api/discord/login", input, { csrf: "wrong" })).status, 403);
+    const begin = await (await h.send("/api/discord/login", input)).json();
+    assert.equal(begin.login.stage, "mfa-required");
+    assert.equal(begin.dashboard.account.identity, null);
+    const other = await fetch(h.origin + "/api/session");
+    const otherCookie = other.headers.get("set-cookie")!.split(";")[0], otherSession = await other.json();
+    const otherState = await (await h.send("/api/discord/login", undefined, { headers: { Cookie: otherCookie } })).json();
+    assert.equal(otherState.challengeId, null);
+    clock += 3001;
+    assert.equal((await h.send("/api/discord/login/mfa", { challengeId: begin.login.challengeId, code: secret.code }, { headers: { Cookie: otherCookie }, csrf: otherSession.csrf })).status, 409);
+    const finish = await (await h.send("/api/discord/login/mfa", { challengeId: begin.login.challengeId, code: secret.code })).json();
+    assert.equal(finish.login.stage, "connected");
+    assert.equal(finish.dashboard.account.identity.id, user.id);
+    assert.equal(finish.dashboard.account.authenticationMethod, "password");
+    assert.equal(finish.dashboard.sync.queue.lastConfirmed, null);
+    const db = JSON.stringify(Object.fromEntries(["config", "lyrics", "bindings", "cache"].map((t) => [t, h.store.db.prepare(`SELECT * FROM ${t}`).all()])));
+    const stream = await h.send("/api/events"), reader = stream.body!.getReader();
+    const sse = new TextDecoder().decode((await reader.read()).value); await reader.cancel();
+    const combined = JSON.stringify([begin, finish, otherState]) + db + sse + lines.join(" ");
+    for (const value of Object.values(secret)) assert(!combined.includes(value));
+    assert.equal(calls.filter((u) => u.endsWith("/auth/mfa/totp")).length, 1);
+    clock += 3001;
+    const newBegin = await (await h.send("/api/discord/login", input)).json();
+    assert.equal(newBegin.login.stage, "mfa-required");
+    await h.send("/api/session", {}, { method: "DELETE" });
+    assert.equal(h.engine.passwordLogin.state(otherSession.csrf).challengeId, null);
+    assert.equal((await h.send("/api/discord/login/mfa", { challengeId: newBegin.login.challengeId, code: secret.code })).status, 401);
+    assert.equal(calls.filter((u) => u.endsWith("/auth/mfa/totp")).length, 1);
+  } finally { Object.assign(console, old); await h.close(); }
+});
+test("Password auth HTTP errors are truthful, do not echo upstream messages and expose Retry-After", async () => {
+  for (const scenario of ["wrong", "captcha", "limited"]) {
+    let calls = 0;
+    const password = "FAKE_API_SECRET_NOT_FOR_OUTPUT";
+    const h = await harness("", true, fake(() => {
+      calls++;
+      return scenario === "wrong" ? json({ message: password }, 400) : scenario === "captcha" ? json({ captcha_key: [password] }, 400) : json({ retry_after: 23, message: password }, 429);
+    }));
+    try {
+      await h.login();
+      const result = await h.send("/api/discord/login", { login: "fixture@example.invalid", password, acceptedRisk: true, persist: false });
+      assert.equal(result.status, scenario === "wrong" ? 401 : scenario === "captcha" ? 403 : 429);
+      const body = await result.text(); assert(!body.includes(password));
+      if (scenario === "limited") assert.equal(result.headers.get("retry-after"), "23");
+      assert.equal(h.engine.snapshot().account.connection, "disconnected");
+      assert.equal(calls, 1);
+    } finally { await h.close(); }
   }
 });
 test("Đăng nhập sai quá 5 lần được giới hạn tốc độ", async () => {
