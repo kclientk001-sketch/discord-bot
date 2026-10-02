@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Lyrics Status • YouTube Music bridge",
+  "version": "1.0.0",
+  "description": "Chỉ đọc phiên phát của tab YouTube Music bạn chọn và gửi tới dashboard cục bộ.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": { "service_worker": "worker.js" },
+  "action": { "default_popup": "popup.html" },
+  "content_scripts": [
+    {
+      "matches": ["https://music.youtube.com/*"],
+      "js": ["reader.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://music.youtube.com/*"],
+      "js": ["relay.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
